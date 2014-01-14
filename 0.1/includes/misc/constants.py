@@ -30,5 +30,5 @@ COLLECTIONS_TRACKS_COLS = [("track_id",
                            ("collection_id",
                                     "INTEGER REFERENCES collections(collection_id) ON DELETE CASCADE ON UPDATE CASCADE")]
 
-FOREIGN_KEYS = ["composer_id", "interpreter_id", "genre_id"]
+FOREIGN_KEYS = {"composer_id": "composer_name", "interpreter_id": "interpreter_name", "genre_id": "genre_name"}
 RELATIONS = {"tracks": ["composers", "interpreters", "genres"]}

@@ -235,11 +235,12 @@ class DbHandler:
         print(sql_parameters)
 
         with self.db_connection:
-            #print(sql, sql_parameters)
+            print(sql, sql_parameters)
             #print(tuple(sql_parameters))
             self.cursor.execute(sql,tuple(sql_parameters))
 
         self.update_db_description()
+
 
     #Database-Information
 
@@ -460,6 +461,7 @@ class TrackDbHandler(DbHandler):
                 """
         data = []
         for entry in args:
+            #Fetching foreign key values
             if entry[2]:
                 entry[2] = self.get_foreign_key_value("interpreters", "interpreter_id", "interpreter_name", entry[2])
             if entry[3]:
@@ -467,25 +469,56 @@ class TrackDbHandler(DbHandler):
             if entry[4]:
                 entry[4] = self.get_foreign_key_value("genres", "genre_id", "genre_name", entry[4])
             entry_line = tuple(entry)
+            print("ENTRY LINE: ",entry_line)
             with self.db_connection:
                 self.cursor.execute("""
-                                    SELECT * FROM tracks WHERE  track_name = ?, year = ?, interpreter_id = ?,
-                                                                composer_id = ?, genre_id = ?, media_location = ?,
-                                                                sheet_location = ?, thumbnail_location = ?
-                                    """)
-            data.append(entry_line)
+                                    SELECT * FROM tracks WHERE  track_name = ? AND year = ? AND interpreter_id = ? AND
+                                                                composer_id = ? AND genre_id = ?
+                                    """, entry_line[0:5])
+                if not self.cursor.fetchone():
+                    #print(self.cursor.fetchall())
+                    data.append(entry_line)
         with self.db_connection:
             if len(data) > 1:
                 self.cursor.executemany(sql, data)
-            else:
+            elif len(data) == 1:
                 print(data[0])
                 self.cursor.execute(sql, data[0])
 
+    def change_value(self, table_name, col, value, key_table = None, con = None):
+        """
+        Changes the value of one column.
+        NOTE: If the column belongs to a foreign key the value of the referenced "_name"-column must be given as value.
+        """
+
+        try:
+            if col in self.foreign_keys:
+                if key_table:
+                    value = self.get_foreign_key_value(key_table, col, self.foreign_keys[col], value)
+                else:
+                    raise sqlite3.IntegrityError
+            self.update_table(table_name,[(col, value),], con)
+        except sqlite3.IntegrityError as e:
+            print(e.args[0])
+            print("Value '{}' was not changed".format(value))
+
     def wipe_db(self):
+        """
+        Clears all the tables in the Database.
+        """
+
         temp_tables = self.tables[:]
         for table in temp_tables:
             self.drop_table(table)
 
+    def remove_duplicates(self):
+        sql =   """
+                DELETE FROM tracks WHERE track_id NOT IN
+                (SELECT MAX(track_id) FROM tracks GROUP BY  track_name, year, interpreter_id, composer_id, genre_id,
+                                                            media_location, sheet_location, thumbnail_location)
+                """
+        with self.db_connection:
+            self.cursor.execute(sql)
 
 if __name__ == "__test__":
 
@@ -519,12 +552,14 @@ if __name__ == "__main__":
     #print(db.db_information)
     #db.input_entries(["Prälude 2", "1900", None, "Heitor Villa-Lobos", "Latein", None, None, None])
     #db.input_entries(["Prälude 1", "1910", "Andy McKee", "Heitor Villa-Lobos", "Latein", None, None, None])
-    #db.input_entries(["Gangnam Style", "2012", "PSY", "PSY","K-POP", None, None, None])
+    db.input_entries(["Gangnam Style", "2012", "PSY", "PSY","K-POP", None, None, None])
+    db.change_value("tracks", "interpreter_id", "PSY", "interpreters", [("track_id =",1),])
+    #db.remove_duplicates()
     db.output_table("tracks")
-    db.output_table("composers")
-    db.output_table("genres")
-    db.output_table("interpreters")
-    db.output_table("collections")
-    db.output_table("collections_tracks")
+    #db.output_table("composers")
+    #db.output_table("genres")
+    #db.output_table("interpreters")
+    #db.output_table("collections")
+    #db.output_table("collections_tracks")
     for entry in db.get_entries():
         print(entry)

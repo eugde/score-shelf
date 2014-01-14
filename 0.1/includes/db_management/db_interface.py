@@ -32,11 +32,14 @@ class DbHandler:
 
         self.cursor = self.db_connection.cursor()
         self.tables = []
-        self.fetch_table_list()
         self.db_information = {}
         self.update_db_description()
 
     #Table-Management
+
+    def __del__(self):
+        self.db_connection.commit()
+        self.db_connection.close()
 
     def create_table(self, table_name, cols):
         """
@@ -57,11 +60,11 @@ class DbHandler:
         sql = str(sql.rsplit(",", 1)[0])
         sql += " )"
 
-        print(sql)
+        #print(sql)
 
         with self.db_connection:
             self.cursor.execute(sql)
-        self.fetch_table_list()
+        self.update_db_description()
 
     def alter_table(self, table_name, cols):
         """
@@ -72,14 +75,14 @@ class DbHandler:
         @param cols: A list of tuples containing the columns for the new table.
         """
 
-        self.fetch_table_list()
+        self.update_db_description()
         temp_table_name = table_name+"_temp"
         try:
-            if table_name in self.tables:
+            if table_name in self.db_information:
                 sql_alter_temp_statement = "ALTER TABLE {} RENAME TO {}".format(table_name,temp_table_name)
                 with self.db_connection:
                     self.cursor.execute(sql_alter_temp_statement)
-                self.fetch_table_list()
+                self.update_db_description()
             else:
                 raise MissingTableError(table_name, self.db_name)
         except MissingTableError as e:
@@ -87,7 +90,7 @@ class DbHandler:
             sys.exit(0)
 
         self.create_table(table_name, cols)
-        print(self.tables)
+        print(self.db_information)
 
         old_columns = self.fetch_table_description(temp_table_name)
         new_columns = [x[0] for x in cols]
@@ -96,6 +99,7 @@ class DbHandler:
 
         self.copy_data_into_table(temp_table_name, table_name, columns_to_copy)
         self.drop_table(temp_table_name)
+        self.update_db_description()
 
     def copy_data_into_table(self, source_table, target_table, columns):
         """
@@ -134,19 +138,11 @@ class DbHandler:
         @param table_name: A String containing the name of the table to be dropped.
         """
 
-        try:
-            # The if-statement is used as alternative protection against sql-injection because of the string-formatting
-            # in the sql statement.
-            if table_name in self.tables:
-                sql = "DROP TABLE IF EXISTS {}".format(table_name)
-                with self.db_connection:
-                    self.cursor.execute(sql)
-                    self.fetch_table_list()
-                    print("Table {} dropped!".format(table_name))
-            else:
-                raise MissingTableError(table_name, self.db_name)
-        except MissingTableError as e:
-            print(e.message)
+        sql = "DROP TABLE IF EXISTS {}".format(table_name)
+        with self.db_connection:
+            self.cursor.execute(sql)
+            print("Table {} dropped!".format(table_name))
+        self.update_db_description()
 
     #Data-Management
 
@@ -198,8 +194,9 @@ class DbHandler:
         @value: The value the WHERE-clause checks against.
         """
 
+        self.update_db_description()
         try:
-            if table_name in self.tables:
+            if table_name in self.db_information:
                 sql = "DELETE FROM {} WHERE {} = ?".format(table_name, col)
                 with self.db_connection:
                     self.cursor.execute(sql, (value,))
@@ -242,6 +239,8 @@ class DbHandler:
             #print(tuple(sql_parameters))
             self.cursor.execute(sql,tuple(sql_parameters))
 
+        self.update_db_description()
+
     #Database-Information
 
     def fetch_table_list(self):
@@ -268,6 +267,7 @@ class DbHandler:
             try:
                 #String formatting is necessary because sqlite doesn't accept placeholders for table names!
                 #This if-statement serves as alternative protection against sql-injection.
+                #self.fetch_table_list()
                 if table_name in self.tables:
                     with self.db_connection:
                         self.cursor.execute("SELECT * FROM {}".format(table_name))
@@ -303,9 +303,9 @@ class DbHandler:
         @return: Either a list of a dictionary containing the data from the table.
         """
 
-        self.fetch_table_list()
+        self.update_db_description()
         try:
-            if table_name in self.tables:
+            if table_name in self.db_information:
                 table_cols = self.fetch_table_description(table_name)
                 if columns:
                     if contains(columns, table_cols):
@@ -354,6 +354,7 @@ class DbHandler:
             print(e.message)
             print(e.detail_info)
 
+
     def output_table(self, table_name):
         """
         Prints the table into the command line.
@@ -363,9 +364,9 @@ class DbHandler:
         """
 
         try:
-            if table_name in self.tables:
+            if table_name in self.db_information:
                 print(table_name.upper())
-                for col in self.fetch_table_description("test"):
+                for col in self.fetch_table_description(table_name):
                     print(col,"|", end="\t")
                 print("\n")
 
@@ -390,7 +391,7 @@ class DbHandler:
             self.cursor.execute(sql, value_tup)
             result = self.cursor.fetchone()
         if result:
-            return result
+            return result[0]
         else:
             result = self.insert_into_table(table_name, {value_column:value})
             return result
@@ -401,15 +402,82 @@ class TrackDbHandler(DbHandler):
     This class exists to separate DB-operations specific to this programme and more general functions,
     which can be found in DbHandler.
     """
-    def __init__(self, db_name):
+    def __init__(self, db_name, initialize = True):
         super(TrackDbHandler, self).__init__(db_name)
 
-        self.create_table("composers", constants.COMPOSERS_COLS)
-        self.create_table("interpreters", constants.INTERPRETERS_COLS)
-        self.create_table("genres", constants.GENRES_COLS)
-        self.create_table("collections", constants.COLLECTIONS_COLS)
-        self.create_table("tracks", constants.TRACKS_COLS)
-        self.create_table("collections_tracks", constants.COLLECTIONS_TRACKS_COLS)
+        if initialize:
+            self.create_table("composers", constants.COMPOSERS_COLS)
+            self.create_table("interpreters", constants.INTERPRETERS_COLS)
+            self.create_table("genres", constants.GENRES_COLS)
+            self.create_table("collections", constants.COLLECTIONS_COLS)
+            self.create_table("tracks", constants.TRACKS_COLS)
+            self.create_table("collections_tracks", constants.COLLECTIONS_TRACKS_COLS)
+
+    def get_entries(self, con_table = None, con_col = None, con_value = None):
+        sql =   """
+                SELECT
+                    tracks.track_name,
+                    tracks.year,
+                    interpreters.interpreter_name,
+                    composers.composer_name,
+                    genres.genre_name,
+                    tracks.media_location,
+                    tracks.sheet_location,
+                    tracks.thumbnail_location
+                FROM
+                    tracks
+                    NATURAL JOIN interpreters
+                    NATURAL JOIN composers
+                    NATURAL JOIN genres
+                """
+
+        if con_table and con_col and con_value:
+            sql += " WHERE {}.{} = ?".format(con_table, con_col)
+            with self.db_connection:
+                self.cursor.execute(sql, con_value)
+                data = self.cursor.fetchall()
+        else:
+            with self.db_connection:
+                self.cursor.execute(sql)
+                data = self.cursor.fetchall()
+
+        return data
+
+    def input_entries(self, *args):
+        """
+        Handles the input of track-data into the correct tables.
+
+        A parameter must have this form:
+        arg = [str track_name, int year, str interpreter, str composer, str genre, str media, str sheet, str thumbnail]
+        """
+
+        sql =   """
+                INSERT OR REPLACE INTO
+                    tracks (track_name, year, interpreter_id, composer_id, genre_id,
+                            media_location, sheet_location, thumbnail_location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """
+        data = []
+        for entry in args:
+            if entry[2]:
+                entry[2] = self.get_foreign_key_value("interpreters", "interpreter_id", "interpreter_name", entry[2])
+            if entry[3]:
+                entry[3] = self.get_foreign_key_value("composers", "composer_id", "composer_name", entry[3])
+            if entry[4]:
+                entry[4] = self.get_foreign_key_value("genres", "genre_id", "genre_name", entry[4])
+            entry_line = tuple(entry)
+            data.append(entry_line)
+        with self.db_connection:
+            if len(data) > 1:
+                self.cursor.executemany(sql, data)
+            else:
+                print(data[0])
+                self.cursor.execute(sql, data[0])
+
+    def wipe_db(self):
+        temp_tables = self.tables[:]
+        for table in temp_tables:
+            self.drop_table(table)
 
 
 if __name__ == "__test__":
@@ -435,7 +503,16 @@ if __name__ == "__test__":
     print(db.fetch_table("test"))
 
 if __name__ == "__main__":
-    print(os.getcwd())
-    db = TrackDbHandler(os.path.join(os.getcwd(), "data", "test2.db"))
-    for table in db.tables:
-        print(db.fetch_table_description(table))
+    #print(os.getcwd())
+    db = TrackDbHandler(os.path.join(os.getcwd(), "data", "test2.db"), True)
+    tables = db.tables[:]
+    print(tables)
+    #db.wipe_db()
+    print(db.tables)
+    #print(db.db_information)
+    #db.input_entries(["Prälude 2", "1900", None, "Heitor Villa-Lobos", "Latein", None, None, None])
+    db.output_table("tracks")
+    db.output_table("composers")
+    db.output_table("genres")
+    db.output_table("interpreters")
+    print(db.get_entries())

@@ -1,19 +1,17 @@
-import os
-
 TABLES = ["tracks", "composers", "interpreters", "genres", "collections", "collections_tracks"]
 
 TRACKS_COLS = [("track_id", "INTEGER PRIMARY KEY"),
-                  ("track_name", "TEXT"),
-                  ("composer_id",
-                        "INTEGER REFERENCES composers(composer_id) ON DELETE SET NULL ON UPDATE CASCADE"),
-                  ("interpreter_id",
-                        "INTEGER REFERENCES interpreters(interpreter_id) ON DELETE SET NULL ON UPDATE CASCADE"),
-                  ("genre_id",
-                        "INTEGER REFERENCES genres(genre_id) ON DELETE SET NULL ON UPDATE CASCADE"),
-                  ("year", "INTEGER"),
-                  ("media_location", "TEXT"),
-                  ("sheet_location", "TEXT"),
-                  ("thumbnail_location", "TEXT")]
+               ("track_name", "TEXT"),
+               ("year", "INTEGER"),
+               ("interpreter_id",
+                    "INTEGER REFERENCES interpreters(interpreter_id) ON DELETE SET NULL ON UPDATE CASCADE"),
+               ("composer_id",
+                    "INTEGER REFERENCES composers(composer_id) ON DELETE SET NULL ON UPDATE CASCADE"),
+               ("genre_id",
+                    "INTEGER REFERENCES genres(genre_id) ON DELETE SET NULL ON UPDATE CASCADE"),
+               ("media_location", "TEXT"),
+               ("sheet_location", "TEXT"),
+               ("thumbnail_location", "TEXT")]
 
 COMPOSERS_COLS = [("composer_id", "INTEGER PRIMARY KEY"),
                   ("composer_name", "TEXT")]
@@ -32,4 +30,6 @@ COLLECTIONS_TRACKS_COLS = [("track_id",
                            ("collection_id",
                                     "INTEGER REFERENCES collections(collection_id) ON DELETE CASCADE ON UPDATE CASCADE")]
 
+KEYS_TO_REPLACE = ["composer_id", "interpreter_id", "genre_id"]
+FOREIGN_KEYS = ["composer_id", "interpreter_id", "genre_id", "track_id", "collection_id"]
 RELATIONS = {"tracks": ["composers", "interpreters", "genres"]}

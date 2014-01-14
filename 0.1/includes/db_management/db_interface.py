@@ -1,7 +1,8 @@
-import sys
-import random
 import sqlite3
+import os, sys
+import random
 
+import constants
 from misc.myExceptions import MissingTableError, InvalidColumnError
 from misc.helper_functions import contains, dict_factory
 
@@ -15,11 +16,11 @@ class DbHandler:
         """
         Creates a new DbHandler-Object to a new or existing database. A cursor-object is also initiated.
 
-        @param db_name: The name of the database, if an invaid name is given a random number will be generated as name.
+        @param db_name: The name of the database, if an invalid name is given a random number will be generated as name.
         """
 
         self.db_name = db_name
-        self.conversion_list = {"int": "INTEGER", "None": "NULL", "float":"REAL", "bytes": "TEXT", "str": "TEXT"}
+        #self.conversion_list = {"int": "INTEGER", "None": "NULL", "float":"REAL", "bytes": "TEXT", "str": "TEXT"}
 
         try:
             self.db_connection = sqlite3.connect(self.db_name)
@@ -45,7 +46,7 @@ class DbHandler:
         Note: If this is the name of an existing table, it will not override the old table.
 
         @param cols: The columns of the new table.
-        Must be a dictionary containing pairs of names and corresponding SQL-types such as {'id': 'INTEGER'}
+        Must be a list containing tuples of names and corresponding SQL-types such as ("id", "INTEGER")
         """
 
         sql = "CREATE TABLE IF NOT EXISTS {} (".format(table_name)
@@ -56,7 +57,7 @@ class DbHandler:
         sql = str(sql.rsplit(",", 1)[0])
         sql += " )"
 
-        #print(sql)
+        print(sql)
 
         with self.db_connection:
             self.cursor.execute(sql)
@@ -65,7 +66,7 @@ class DbHandler:
     def alter_table(self, table_name, cols):
         """
         Takes an existing table and alters its columns.
-        NOTE: If the new table doesn't contain all the columns of the old table data can get lost!
+        NOTE: Pre-Existing Columns not included in cols will be deleted!
 
         @param table_name: A string containing the name of the table to be altered.
         @param cols: A list of tuples containing the columns for the new table.
@@ -180,11 +181,13 @@ class DbHandler:
                 sql += "'"+str(entry[key]) + "',"
 
             sql = str(sql.rsplit(",", 1)[0]) + ")"
+            print(sql)
 
             if ordered_keys:
                 with self.db_connection:
                     #print(sql)
                     self.cursor.execute(sql)
+        return self.cursor.lastrowid
 
     def delete_from_table(self, table_name, col, value):
         """
@@ -231,6 +234,8 @@ class DbHandler:
             sql_parameters.append(con[1])
 
         sql += str(sql_condition.rsplit(condition_operator, 1)[0]) + " "
+        print(sql)
+        print(sql_parameters)
 
         with self.db_connection:
             #print(sql, sql_parameters)
@@ -328,6 +333,7 @@ class DbHandler:
                         else:
                             self.cursor.execute(sql, values)
                             data = self.cursor.fetchall()
+                            print(sql)
                 else:
                     with self.db_connection:
                         if dict_output:
@@ -377,21 +383,59 @@ class DbHandler:
         except MissingTableError as e:
             print(e.message)
 
+    def get_foreign_key_value(self, table_name, key_column, value_column, value):
+        sql = "SELECT {} FROM {} WHERE {} = ?".format(key_column, table_name, value_column)
+        value_tup = (value,)
+        with self.db_connection:
+            self.cursor.execute(sql, value_tup)
+            result = self.cursor.fetchone()
+        if result:
+            return result
+        else:
+            result = self.insert_into_table(table_name, {value_column:value})
+            return result
 
-if __name__ == "__main__":
+
+class TrackDbHandler(DbHandler):
+    """
+    This class exists to separate DB-operations specific to this programme and more general functions,
+    which can be found in DbHandler.
+    """
+    def __init__(self, db_name):
+        super(TrackDbHandler, self).__init__(db_name)
+
+        self.create_table("composers", constants.COMPOSERS_COLS)
+        self.create_table("interpreters", constants.INTERPRETERS_COLS)
+        self.create_table("genres", constants.GENRES_COLS)
+        self.create_table("collections", constants.COLLECTIONS_COLS)
+        self.create_table("tracks", constants.TRACKS_COLS)
+        self.create_table("collections_tracks", constants.COLLECTIONS_TRACKS_COLS)
+
+
+if __name__ == "__test__":
+
     db = DbHandler("data/test.db")
-    #db.drop_table("test")
+    db.drop_table("test")
     db.create_table("test", [("id","INTEGER PRIMARY KEY"),("name","TEXT"), ("link_guitar","TEXT")])
-    #db.insert_into_table("test", {"name": "Hallo Welt"},{"name":"Tschüss Welt", "link_guitar": "asdf"},{"denkeygibtsned":"asdf"})
+    db.insert_into_table("test", {"name": "Hallo Welt"},{"name":"Tschüss Welt", "link_guitar": "asdf"},{"denkeygibtsned":"asdf"})
 
-    db.output_table("test")
-    db.update_table("test", [("name", "H4ll0 W3lt"), [("id =", 1)], ("link_guitar", "Bass")] )
+    #db.output_table("test")
+    #db.update_table("test", [("name", "H4ll0 W3lt"), ("link_guitar", "Bass")], [("id =", 1),])
     #db.output_table("test")
     #db.alter_table("test", [("id","INTEGER PRIMARY KEY"),("name","TEXT"), ("link_guitar","TEXT"), ("link_bass", "TEXT")])
-    #db.output_table("test")
+    db.output_table("test")
 
     print(db.tables)
-    table_data = db.fetch_table("test", ["id","name"], condition=[("id >", 2), ("id<",5)], dict_output=False)
-    print (table_data)
+    #table_data = db.fetch_table("test", ["id","name"], condition=[("id >", 2), ("id<",5)], dict_output=False)
+    #print (table_data)
+    print(db.get_foreign_key_value("test", "id", "link_guitar", "Bass"))
+    print(db.get_foreign_key_value("test", "id", "link_guitar", "B4ss"))
+    print(db.get_foreign_key_value("test", "id", "link_guitar", "Geige"))
 
     print(db.fetch_table("test"))
+
+if __name__ == "__main__":
+    print(os.getcwd())
+    db = TrackDbHandler(os.path.join(os.getcwd(), "data", "test2.db"))
+    for table in db.tables:
+        print(db.fetch_table_description(table))

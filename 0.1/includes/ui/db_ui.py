@@ -5,7 +5,7 @@ import sys
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 import db_interface
-from misc import helper_functions
+from misc import helper_functions, constants
 
 
 class DbModel(QtCore.QAbstractTableModel):
@@ -17,7 +17,7 @@ class DbModel(QtCore.QAbstractTableModel):
         self.db = db
         self.fetch_data("test")
 
-    def fetch_data(self, table_name, columns = [], condition = [], condition_operator = "AND", dict_output = False):
+    def fetch_data(self, table_name = constants.DEFAULTTABLE, columns = [], condition = [], condition_operator = "AND", dict_output = False):
         self.data = self.db.fetch_table(table_name, columns, condition, condition_operator, dict_output)
         self.columns = self.db.fetch_table_description(table_name)
 

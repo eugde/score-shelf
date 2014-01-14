@@ -73,7 +73,7 @@ class DataLine:
         self.content = QtWidgets.QLineEdit(str(content))
 
     def get_content(self):
-        return self.content.toPlainText()
+        return self.content.text()
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

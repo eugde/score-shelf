@@ -17,7 +17,7 @@ class DbModel(QtCore.QAbstractTableModel):
         self.db = db
         self.fetch_data("test")
 
-    def fetch_data(self, table_name = constants.DEFAULTTABLE, columns = [], condition = [], condition_operator = "AND", dict_output = False):
+    def fetch_data(self, table_name, columns = [], condition = [], condition_operator = "AND", dict_output = False):
         self.data = self.db.fetch_table(table_name, columns, condition, condition_operator, dict_output)
         self.columns = self.db.fetch_table_description(table_name)
 

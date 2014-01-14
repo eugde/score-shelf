@@ -360,7 +360,6 @@ class DbHandler:
         Prints the table into the command line.
 
         @param table_name:
-        @return:
         """
 
         try:
@@ -405,6 +404,8 @@ class TrackDbHandler(DbHandler):
     def __init__(self, db_name, initialize = True):
         super(TrackDbHandler, self).__init__(db_name)
 
+        self.foreign_keys = constants.FOREIGN_KEYS
+
         if initialize:
             self.create_table("composers", constants.COMPOSERS_COLS)
             self.create_table("interpreters", constants.INTERPRETERS_COLS)
@@ -426,9 +427,9 @@ class TrackDbHandler(DbHandler):
                     tracks.thumbnail_location
                 FROM
                     tracks
-                    NATURAL JOIN interpreters
-                    NATURAL JOIN composers
-                    NATURAL JOIN genres
+                    NATURAL LEFT JOIN interpreters
+                    NATURAL LEFT JOIN composers
+                    NATURAL LEFT JOIN genres
                 """
 
         if con_table and con_col and con_value:
@@ -466,6 +467,12 @@ class TrackDbHandler(DbHandler):
             if entry[4]:
                 entry[4] = self.get_foreign_key_value("genres", "genre_id", "genre_name", entry[4])
             entry_line = tuple(entry)
+            with self.db_connection:
+                self.cursor.execute("""
+                                    SELECT * FROM tracks WHERE  track_name = ?, year = ?, interpreter_id = ?,
+                                                                composer_id = ?, genre_id = ?, media_location = ?,
+                                                                sheet_location = ?, thumbnail_location = ?
+                                    """)
             data.append(entry_line)
         with self.db_connection:
             if len(data) > 1:
@@ -511,8 +518,13 @@ if __name__ == "__main__":
     print(db.tables)
     #print(db.db_information)
     #db.input_entries(["Prälude 2", "1900", None, "Heitor Villa-Lobos", "Latein", None, None, None])
+    #db.input_entries(["Prälude 1", "1910", "Andy McKee", "Heitor Villa-Lobos", "Latein", None, None, None])
+    #db.input_entries(["Gangnam Style", "2012", "PSY", "PSY","K-POP", None, None, None])
     db.output_table("tracks")
     db.output_table("composers")
     db.output_table("genres")
     db.output_table("interpreters")
-    print(db.get_entries())
+    db.output_table("collections")
+    db.output_table("collections_tracks")
+    for entry in db.get_entries():
+        print(entry)

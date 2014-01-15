@@ -1,5 +1,32 @@
 TABLES = ["tracks", "composers", "interpreters", "genres", "collections", "collections_tracks"]
 
+#The colums to be selected from the joined tables in the database
+ENTRY_COLS_SORTED = [   "tracks.track_id",
+                        "tracks.track_name",
+                        "tracks.year",
+                        "interpreters.interpreter_name",
+                        "composers.composer_name",
+                        "genres.genre_name",
+                        "tracks.media_location",
+                        "tracks.sheet_location",
+                        "tracks.thumbnail_location"]
+
+#Trivial names to reference the columns in ENTRY_COLS_SORTED
+ENTRY_COLS_NAMES = ["id",
+                    "Track",
+                    "Jahr",
+                    "Intepret",
+                    "Komponist",
+                    "Genre",
+                    "Medien",
+                    "Noten",
+                    "Thumbnail"]
+
+TRACK_INSERT_COLS = ["track_name", "year", "interpreter_id", "composer_id",
+                     "genre_id", "media_location", "sheet_location", "thumbnail_location"]
+
+JOIN_COLS = "tracks NATURAL LEFT JOIN interpreters NATURAL LEFT JOIN composers NATURAL LEFT JOIN genres"
+
 TRACKS_COLS = [("track_id", "INTEGER PRIMARY KEY"),
                ("track_name", "TEXT"),
                ("year", "INTEGER"),

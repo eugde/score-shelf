@@ -27,3 +27,7 @@ def nonesort(entry):
         return entry
     else:
         return ""
+
+def create_placeholders(len):
+    result = "( " + "?,"*(len-1) + "?)"
+    return result

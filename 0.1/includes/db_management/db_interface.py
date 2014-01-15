@@ -121,7 +121,7 @@ class DbHandler:
                 )
 
                 with self.db_connection:
-                    print(sql)
+                    p#rint(sql)
                     self.cursor.execute(sql)
             else:
                 table_names = "{}, {}".format(source_table, target_table)
@@ -177,7 +177,7 @@ class DbHandler:
                 sql += "'"+str(entry[key]) + "',"
 
             sql = str(sql.rsplit(",", 1)[0]) + ")"
-            print(sql)
+            #print(sql)
 
             if ordered_keys:
                 with self.db_connection:
@@ -231,8 +231,8 @@ class DbHandler:
             sql_parameters.append(con[1])
 
         sql += str(sql_condition.rsplit(condition_operator, 1)[0]) + " "
-        print(sql)
-        print(sql_parameters)
+        #print(sql)
+        #print(sql_parameters)
 
         with self.db_connection:
             print(sql, sql_parameters)
@@ -334,7 +334,7 @@ class DbHandler:
                         else:
                             self.cursor.execute(sql, values)
                             data = self.cursor.fetchall()
-                            print(sql)
+                            #print(sql)
                 else:
                     with self.db_connection:
                         if dict_output:
@@ -406,6 +406,8 @@ class TrackDbHandler(DbHandler):
         super(TrackDbHandler, self).__init__(db_name)
 
         self.foreign_keys = constants.FOREIGN_KEYS
+        self.entry_columns = constants.ENTRY_COLS_SORTED
+        self.insert_cols = constants.TRACK_INSERT_COLS
 
         if initialize:
             self.create_table("composers", constants.COMPOSERS_COLS)
@@ -416,22 +418,8 @@ class TrackDbHandler(DbHandler):
             self.create_table("collections_tracks", constants.COLLECTIONS_TRACKS_COLS)
 
     def get_entries(self, con_table = None, con_col = None, con_value = None):
-        sql =   """
-                SELECT
-                    tracks.track_name,
-                    tracks.year,
-                    interpreters.interpreter_name,
-                    composers.composer_name,
-                    genres.genre_name,
-                    tracks.media_location,
-                    tracks.sheet_location,
-                    tracks.thumbnail_location
-                FROM
-                    tracks
-                    NATURAL LEFT JOIN interpreters
-                    NATURAL LEFT JOIN composers
-                    NATURAL LEFT JOIN genres
-                """
+        cols = ", ".join(self.entry_columns)
+        sql =   "SELECT {} FROM {}".format(cols, constants.JOIN_COLS)
 
         if con_table and con_col and con_value:
             sql += " WHERE {}.{} = ?".format(con_table, con_col)
@@ -442,23 +430,25 @@ class TrackDbHandler(DbHandler):
             with self.db_connection:
                 self.cursor.execute(sql)
                 data = self.cursor.fetchall()
-
-        return data
+        entry_list = []
+        for line in data:
+            entry_list.append(Entry(line))
+        return entry_list
 
     def input_entries(self, *args):
         """
         Handles the input of track-data into the correct tables.
 
-        A parameter must have this form:
-        arg = [str track_name, int year, str interpreter, str composer, str genre, str media, str sheet, str thumbnail]
+        A parameter must have all the columns defined in constants.TRACK_INSERT_COLS
         """
 
         sql =   """
                 INSERT OR REPLACE INTO
-                    tracks (track_name, year, interpreter_id, composer_id, genre_id,
-                            media_location, sheet_location, thumbnail_location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """
+                    tracks ({})
+                VALUES (
+                """.format(self.insert_cols)
+        sql += ("?, "*(len(self.insert_cols)-1)) + "?)"
+
         data = []
         for entry in args:
             #Fetching foreign key values
@@ -469,7 +459,7 @@ class TrackDbHandler(DbHandler):
             if entry[4]:
                 entry[4] = self.get_foreign_key_value("genres", "genre_id", "genre_name", entry[4])
             entry_line = tuple(entry)
-            print("ENTRY LINE: ",entry_line)
+            #print("ENTRY LINE: ",entry_line)
             with self.db_connection:
                 self.cursor.execute("""
                                     SELECT * FROM tracks WHERE  track_name = ? AND year = ? AND interpreter_id = ? AND
@@ -482,7 +472,7 @@ class TrackDbHandler(DbHandler):
             if len(data) > 1:
                 self.cursor.executemany(sql, data)
             elif len(data) == 1:
-                print(data[0])
+                #print(data[0])
                 self.cursor.execute(sql, data[0])
 
     def change_value(self, table_name, col, value, key_table = None, con = None):
@@ -512,6 +502,10 @@ class TrackDbHandler(DbHandler):
             self.drop_table(table)
 
     def remove_duplicates(self):
+        """
+        Removes duplicate rows in the 'tracks' table. Leaves the row with the highest track_id intact.
+        """
+
         sql =   """
                 DELETE FROM tracks WHERE track_id NOT IN
                 (SELECT MAX(track_id) FROM tracks GROUP BY  track_name, year, interpreter_id, composer_id, genre_id,
@@ -519,6 +513,31 @@ class TrackDbHandler(DbHandler):
                 """
         with self.db_connection:
             self.cursor.execute(sql)
+
+class Entry:
+    """
+    Represents the data inside one row of the 'tracks' table.
+    """
+
+    def __init__(self, data):
+        self.names = constants.ENTRY_COLS_NAMES
+        self.data = []
+        self.set_data(data)
+
+    def set_data(self, result_data):
+        for name, data in zip(self.names, result_data):
+            self.data.append([name,data])
+        #print(self.data)
+
+    def get_track_id(self):
+        return self.data[0][1]
+
+    def __str__(self):
+        output = ""
+        for line in self.data:
+            output += " {}: {}\n".format(line[0], line[1])
+        return output
+
 
 if __name__ == "__test__":
 
@@ -546,20 +565,20 @@ if __name__ == "__main__":
     #print(os.getcwd())
     db = TrackDbHandler(os.path.join(os.getcwd(), "data", "test2.db"), True)
     tables = db.tables[:]
-    print(tables)
+    #print(tables)
     #db.wipe_db()
-    print(db.tables)
+    #print(db.tables)
     #print(db.db_information)
     #db.input_entries(["Prälude 2", "1900", None, "Heitor Villa-Lobos", "Latein", None, None, None])
     #db.input_entries(["Prälude 1", "1910", "Andy McKee", "Heitor Villa-Lobos", "Latein", None, None, None])
     db.input_entries(["Gangnam Style", "2012", "PSY", "PSY","K-POP", None, None, None])
     db.change_value("tracks", "interpreter_id", "PSY", "interpreters", [("track_id =",1),])
     #db.remove_duplicates()
-    db.output_table("tracks")
+    #db.output_table("tracks")
     #db.output_table("composers")
     #db.output_table("genres")
     #db.output_table("interpreters")
-    #db.output_table("collections")
-    #db.output_table("collections_tracks")
+    db.output_table("collections")
+    db.output_table("collections_tracks")
     for entry in db.get_entries():
         print(entry)

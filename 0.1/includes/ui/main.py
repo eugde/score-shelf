@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets, uic
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
 import os, sys
 
 #import db_ui, db_interface
@@ -16,6 +16,8 @@ class MainWindow(QtWidgets.QMainWindow):
         widget_2.ui = uic.loadUi(os.path.join("data", "subwidgets", "placeholder.ui"), widget_2)
 
 app = QtWidgets.QApplication(sys.argv)
+app.setStyle("cleanlooks")
+
 mw = MainWindow(os.path.join("data", "main.ui"))
 mw.show()
 mw.raise_()

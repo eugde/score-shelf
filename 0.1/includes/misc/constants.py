@@ -1,3 +1,5 @@
+import os
+
 TABLES = ["tracks", "composers", "interpreters", "genres", "collections", "collections_tracks"]
 
 #The colums to be selected from the joined tables in the database

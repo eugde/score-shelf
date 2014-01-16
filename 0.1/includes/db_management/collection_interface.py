@@ -5,7 +5,7 @@ import db_interface
 
 
 class CollectionHandler:
-    def __init__(self, name, db, linker):
+    def __init__(self, name, db, linker = None):
 
         self.name = name
         self.db = db
@@ -76,6 +76,8 @@ class CollectionHandler:
         self.groups["Komponisten"] = composers
         self.groups["Genres"] = genres
 
+        return self.groups
+
     def get_all_entries(self):
         """
         Fetches all tracks from the 'tracks' table which have a connection with the collection.
@@ -131,7 +133,6 @@ class CollectionHandler:
         with self.db.db_connection:
             self.db.cursor.execute(sql, (track_id, self.id))
             self.update_groups()
-
 
 
 if __name__ == "__main__":

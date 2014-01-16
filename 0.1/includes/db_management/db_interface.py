@@ -121,7 +121,7 @@ class DbHandler:
                 )
 
                 with self.db_connection:
-                    p#rint(sql)
+                    #rint(sql)
                     self.cursor.execute(sql)
             else:
                 table_names = "{}, {}".format(source_table, target_table)
@@ -355,6 +355,23 @@ class DbHandler:
             print(e.message)
             print(e.detail_info)
 
+    def get_entries(self, con_table = None, con_col = None, con_value = None):
+        cols = ", ".join(constants.ENTRY_COLS_SORTED)
+        sql =   "SELECT {} FROM {}".format(cols, constants.JOIN_COLS)
+
+        if con_table and con_col and con_value:
+            sql += " WHERE {}.{} = ?".format(con_table, con_col)
+            with self.db_connection:
+                self.cursor.execute(sql, con_value)
+                data = self.cursor.fetchall()
+        else:
+            with self.db_connection:
+                self.cursor.execute(sql)
+                data = self.cursor.fetchall()
+        entry_list = []
+        for line in data:
+            entry_list.append(Entry(line))
+        return entry_list
 
     def output_table(self, table_name):
         """

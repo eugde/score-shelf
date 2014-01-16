@@ -64,8 +64,6 @@ class EntryDialog(QtWidgets.QDialog):
         self.close()
 
 
-
-
 class DataLine:
     def __init__(self, title, content):
         self.col = title
@@ -74,6 +72,7 @@ class DataLine:
 
     def get_content(self):
         return self.content.text()
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

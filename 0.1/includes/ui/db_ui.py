@@ -1,9 +1,10 @@
 #TODO: FIX HEADER
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtCore, QtWidgets, QtGui, uic
 import os, sys
+import math
 
 import db_interface
-import collection_interface
+import collection_interface, entry_dialog
 from misc import helper_functions, constants
 
 
@@ -160,7 +161,6 @@ class TreeItem:
         return 1
 
 
-
 class CollectionView(QtWidgets.QTreeView):
     def __init__(self, db, parent = None):
         super(CollectionView, self).__init__(parent)
@@ -169,14 +169,64 @@ class CollectionView(QtWidgets.QTreeView):
         self.setModel(CollectionModel(db))
 
 
+class EntryTabView(QtWidgets.QTabWidget):
+    def __init__(self, entries = None, widgets_per_page = 8, parent = None):
+        """
+        This TabWidget shows a collection of EntryView-Widgets on base of the entries passed to it.
+
+        @param entries: A list of members of the Entry-class, containing the data to be displayed.
+        """
+
+        super(EntryTabView, self).__init__(parent)
+        self.widgets_per_page = widgets_per_page
+        self.pages_amount = 0
+        self.set_entries(entries, widgets_per_page)
+        self.setTabPosition(QtWidgets.QTabWidget.South)
+        self.setTabShape(QtWidgets.QTabWidget.Triangular)
+
+
+
+    def set_entries(self, entries, widgets_per_page = None):
+        if not widgets_per_page:
+            widgets_per_page = self.widgets_per_page
+
+        if entries:
+            self.pages_amount = math.ceil(len(entries)/widgets_per_page)
+        self.clear()
+
+        for page in range(0,self.pages_amount):
+            self.addTab(EntryTabPage(entries[:(widgets_per_page-1)], parent = self), "Seite {}".format(page+1))
+            entries = entries[widgets_per_page:]
+
+        self.update()
+
+
+class EntryTabPage(QtWidgets.QWidget):
+    def __init__(self, entries, row_count = 2, col_count=4, parent = None):
+        super(EntryTabPage,self).__init__(parent)
+
+        self.setLayout(QtWidgets.QGridLayout(self))
+
+        for row in range(0,row_count):
+            for col in range(0, col_count):
+                try:
+                    widget = EntryView(entries[col], parent = self)
+                    self.layout().addWidget(widget, row, col)
+                except IndexError:
+                    self.layout().addItem(QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Ignored),row,col)
+
+
+
 class EntryView(QtWidgets.QWidget):
-    def __init__(self, entry, parent = None):
+    def __init__(self, entry, db = db_interface.TrackDbHandler(constants.MAIN_DB_PATH), parent = None):
         super(EntryView, self).__init__(parent)
 
         self.entry = entry
         self.data = []
 
-        self.sizeRect = QtCore.QRect(10,10, 100,100)
+        self.db = db
+
+        self.sizeRect = self.rect().adjusted(10,10, -10,-10)
 
         self.name = ""
         self.interpreter = ""
@@ -184,8 +234,15 @@ class EntryView(QtWidgets.QWidget):
         self.thumbnail = QtGui.QImage()
         self.update_render_data()
 
+
+        self.inFocus = False
+
         self.thumbnailRect = QtCore.QRect(0,0,self.thumbnail.width(), self.thumbnail.height())
 
+    def update_entry(self):
+        self.entry = self.db.get_entries(con_table = "tracks", con_col = "track_id",
+                                         con_value = self.entry.get_track_id())
+        self.update()
 
     def update_render_data(self):
         self.name = self.entry.data[1][1]
@@ -197,10 +254,39 @@ class EntryView(QtWidgets.QWidget):
             self.thumbnail.load(os.path.join("data","img", "placeholder.png"))
             print()
 
+    def enterEvent(self, event):
+        self.inFocus = True
+        self.setCursor(QtCore.Qt.PointingHandCursor)
+        self.update()
+
+    def leaveEvent(self, event):
+        self.inFocus = False
+        self.update()
+
+    def mouseDoubleClickEvent(self, event):
+        entryDialog = entry_dialog.EntryDialog(self.entry, parent = self)
+        entryDialog.show()
+
+
     def paintEvent(self, event):
+        self.sizeRect = self.rect().adjusted(10,10, -10,-10)
         painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setBrush(QtGui.QBrush(QtGui.QColor(255,255,255)))
+
+        painter.drawRoundedRect(self.sizeRect.adjusted(-5,-5,10,10), 20,15)
+        #TODO: Fix scaling!
         painter.drawImage(self.sizeRect, self.thumbnail, self.thumbnailRect)
-        painter.drawText(self.sizeRect, QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom, self.name+":\n"+self.interpreter)
+
+        painter.drawText(self.sizeRect.adjusted(5,5,-10,-10), QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom,
+                            self.name+":\n"+self.interpreter)
+
+        painter.save()
+        if self.inFocus:
+            painter.setOpacity(0.5)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(7,77,112)))
+            painter.drawRoundedRect(self.sizeRect.adjusted(-5,-5,10,10), 20,15)
+        painter.restore()
 
 
 if __name__ == "__main__":
@@ -208,7 +294,19 @@ if __name__ == "__main__":
     print(os.path.abspath(__file__))
     app = QtWidgets.QApplication(sys.argv)
     db = db_interface.TrackDbHandler("data/test2.db")
-    test_v = EntryView(db_interface.Entry([1,"Test","Beidl","Boobies","asdf","asdf","adsf","asdf",os.path.join("data", "img", "add.png")]))
-    test_v.resize(500,500)
+    test_v = EntryTabView([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
+                        ])
+    test_v.set_entries([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])])
+    test_v.resize(800,600)
+    test_v.update()
     test_v.show()
     sys.exit(app.exec_())

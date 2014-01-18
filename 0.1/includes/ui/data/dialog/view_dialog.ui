@@ -17,7 +17,7 @@
    <item row="0" column="1">
     <layout class="QVBoxLayout" name="container_r" stretch="3,2">
      <item>
-      <widget class="QLabel" name="Image">
+      <widget class="ImageLabel" name="imageLabel">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
          <horstretch>0</horstretch>
@@ -69,6 +69,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ImageLabel</class>
+   <extends>QLabel</extends>
+   <header>ui.entry_dialog</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

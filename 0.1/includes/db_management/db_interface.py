@@ -441,7 +441,9 @@ class TrackDbHandler(DbHandler):
         if con_table and con_col and con_value:
             sql += " WHERE {}.{} = ?".format(con_table, con_col)
             with self.db_connection:
-                self.cursor.execute(sql, con_value)
+                print(sql)
+                print(con_value)
+                self.cursor.execute(sql, (con_value,))
                 data = self.cursor.fetchall()
         else:
             with self.db_connection:
@@ -461,9 +463,9 @@ class TrackDbHandler(DbHandler):
 
         sql =   """
                 INSERT OR REPLACE INTO
-                    tracks ({})
+                    tracks {}
                 VALUES (
-                """.format(self.insert_cols)
+                """.format(tuple(self.insert_cols))
         sql += ("?, "*(len(self.insert_cols)-1)) + "?)"
 
         data = []
@@ -491,6 +493,19 @@ class TrackDbHandler(DbHandler):
             elif len(data) == 1:
                 #print(data[0])
                 self.cursor.execute(sql, data[0])
+
+
+    def change_entry(self, entry):
+        change_cols = " = ?,".join(self.insert_cols) + " = ?"
+        sql = "UPDATE tracks SET {} WHERE track_id = ?".format(change_cols)
+        values = []
+        for col in entry.data[1:]:
+            values.append(col[1])
+        values.append(entry.data[0][1])
+        print(sql)
+        with self.db_connection:
+            self.cursor.execute(sql, values)
+
 
     def change_value(self, table_name, col, value, key_table = None, con = None):
         """
@@ -542,11 +557,18 @@ class Entry:
         self.set_data(data)
 
     def set_data(self, result_data):
+        self.data = []
         for name, data in zip(self.names, result_data):
             self.data.append([name,data])
-        #print(self.data)
+
+    def save_data(self, db, data):
+        self.data = []
+        for name, data_line in zip(self.names, data):
+            self.data.append([name,data_line])
+        db.change_entry(self)
 
     def get_track_id(self):
+        print(self.data)
         return self.data[0][1]
 
     def __str__(self):
@@ -558,7 +580,7 @@ class Entry:
 
 if __name__ == "__test__":
 
-    db = DbHandler("data/test.db")
+    db = DbHandler(constants.MAIN_DB_PATH)
     db.drop_table("test")
     db.create_table("test", [("id","INTEGER PRIMARY KEY"),("name","TEXT"), ("link_guitar","TEXT")])
     db.insert_into_table("test", {"name": "Hallo Welt"},{"name":"Tschüss Welt", "link_guitar": "asdf"},{"denkeygibtsned":"asdf"})
@@ -580,7 +602,7 @@ if __name__ == "__test__":
 
 if __name__ == "__main__":
     #print(os.getcwd())
-    db = TrackDbHandler(os.path.join(os.getcwd(), "data", "test2.db"), True)
+    db = TrackDbHandler(constants.MAIN_DB_PATH)
     tables = db.tables[:]
     #print(tables)
     #db.wipe_db()
@@ -588,7 +610,7 @@ if __name__ == "__main__":
     #print(db.db_information)
     #db.input_entries(["Prälude 2", "1900", None, "Heitor Villa-Lobos", "Latein", None, None, None])
     #db.input_entries(["Prälude 1", "1910", "Andy McKee", "Heitor Villa-Lobos", "Latein", None, None, None])
-    db.input_entries(["Gangnam Style", "2012", "PSY", "PSY","K-POP", None, None, None])
+    db.input_entries(["Gangnam Style", "2012", None, "PSY","K-POP", None, None, None])
     db.change_value("tracks", "interpreter_id", "PSY", "interpreters", [("track_id =",1),])
     #db.remove_duplicates()
     #db.output_table("tracks")
@@ -597,5 +619,6 @@ if __name__ == "__main__":
     #db.output_table("interpreters")
     db.output_table("collections")
     db.output_table("collections_tracks")
+    db.output_table("tracks")
     for entry in db.get_entries():
         print(entry)

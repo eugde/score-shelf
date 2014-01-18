@@ -1,4 +1,5 @@
 import os,shutil
+import constants
 
 
 class LinkingHandler():
@@ -7,11 +8,11 @@ class LinkingHandler():
     """
 
     def __init__(self):
-        self.root = os.getcwd()
-        self.data_dir = os.path.join(self.root, "data")
-        self.data_tree = self.get_walk()
+        self.root = constants.DATA_ROOT_DIRECTORY
+        if not os.path.isdir(self.root):
+            self.create_dir(self.root)
 
-        self.create_dir(self.data_dir)
+        self.data_tree = self.get_walk()
 
     def create_dir(self, path):
         if os.path.exists(path):
@@ -20,7 +21,7 @@ class LinkingHandler():
             os.mkdir(path)
             print("{} created".format(path))
 
-    def remove_dir(self,path):
+    def remove_dir(self, path):
         def handle_delerror(function, errpath, excinfo):
             #This function is used as quasi-lambda for the rmtree function.
             print("{} couldn't be executed correctly at {}: {}".format(function,errpath,excinfo))
@@ -39,10 +40,14 @@ class LinkingHandler():
 
     def get_walk(self, root = None):
         if not root:
-            root = self.data_dir
+            root = self.root
         return os.walk(root)
 
     def archive_data(self, name=None, format="zip"):
         if not name:
-            name = self.data_dir+"_bak"
+            name = self.root+"_bak"
         shutil.make_archive(name,format, self.data_dir)
+
+if __name__ == "__main__":
+    test = LinkingHandler()
+    print(test.root)

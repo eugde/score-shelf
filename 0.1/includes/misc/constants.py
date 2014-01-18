@@ -1,6 +1,11 @@
 import os
 
+APPLICATION_NAME = "ScoreCabinet"
+DATA_ROOT_DIRECTORY = os.path.join(os.path.expanduser("~"), APPLICATION_NAME)
+MAIN_DB_PATH = os.path.join(DATA_ROOT_DIRECTORY,"main.db")
+
 TABLES = ["tracks", "composers", "interpreters", "genres", "collections", "collections_tracks"]
+
 
 #The colums to be selected from the joined tables in the database
 ENTRY_COLS_SORTED = [   "tracks.track_id",

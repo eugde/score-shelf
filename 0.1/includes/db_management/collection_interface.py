@@ -1,16 +1,16 @@
 import sqlite3
+import os
 
 from misc import constants, data_linking, helper_functions
 import db_interface
 
 
 class CollectionHandler:
-    def __init__(self, name, db, linker = None):
+    def __init__(self, name, db):
 
         self.name = name
         self.db = db
         self.groups = []
-        self.linker = linker
 
         self.id = None
         self.update_collection_id()
@@ -136,7 +136,7 @@ class CollectionHandler:
 
 
 if __name__ == "__main__":
-    test = CollectionHandler("test", db_interface.TrackDbHandler("data/test2.db"), data_linking.LinkingHandler())
+    test = CollectionHandler("test", db_interface.TrackDbHandler(constants.MAIN_DB_PATH))
 
     print(test.groups)
     print(test.id)

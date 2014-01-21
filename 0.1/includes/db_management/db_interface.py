@@ -20,7 +20,6 @@ class DbHandler:
         """
 
         self.db_name = db_name
-        #self.conversion_list = {"int": "INTEGER", "None": "NULL", "float":"REAL", "bytes": "TEXT", "str": "TEXT"}
 
         try:
             self.db_connection = sqlite3.connect(self.db_name)
@@ -355,23 +354,6 @@ class DbHandler:
             print(e.message)
             print(e.detail_info)
 
-    def get_entries(self, con_table = None, con_col = None, con_value = None):
-        cols = ", ".join(constants.ENTRY_COLS_SORTED)
-        sql =   "SELECT {} FROM {}".format(cols, constants.JOIN_COLS)
-
-        if con_table and con_col and con_value:
-            sql += " WHERE {}.{} = ?".format(con_table, con_col)
-            with self.db_connection:
-                self.cursor.execute(sql, con_value)
-                data = self.cursor.fetchall()
-        else:
-            with self.db_connection:
-                self.cursor.execute(sql)
-                data = self.cursor.fetchall()
-        entry_list = []
-        for line in data:
-            entry_list.append(Entry(line))
-        return entry_list
 
     def output_table(self, table_name):
         """
@@ -401,7 +383,12 @@ class DbHandler:
         except MissingTableError as e:
             print(e.message)
 
+
     def get_foreign_key_value(self, table_name, key_column, value_column, value):
+        """
+        Returns the foreign key corresponding to value in value_column in table_name.
+        """
+
         sql = "SELECT {} FROM {} WHERE {} = ?".format(key_column, table_name, value_column)
         value_tup = (value,)
         with self.db_connection:
@@ -419,6 +406,7 @@ class TrackDbHandler(DbHandler):
     This class exists to separate DB-operations specific to this programme and more general functions,
     which can be found in DbHandler.
     """
+
     def __init__(self, db_name, initialize = True):
         super(TrackDbHandler, self).__init__(db_name)
 
@@ -435,6 +423,9 @@ class TrackDbHandler(DbHandler):
             self.create_table("collections_tracks", constants.COLLECTIONS_TRACKS_COLS)
 
     def get_entries(self, con_table = None, con_col = None, con_value = None):
+        """
+        Fetches a list of entries which fulfill the provided condition.
+        """
         cols = ", ".join(self.entry_columns)
         sql =   "SELECT {} FROM {}".format(cols, constants.JOIN_COLS)
 
@@ -453,6 +444,7 @@ class TrackDbHandler(DbHandler):
         for line in data:
             entry_list.append(Entry(line))
         return entry_list
+
 
     def input_entries(self, *args):
         """
@@ -496,6 +488,10 @@ class TrackDbHandler(DbHandler):
 
 
     def change_entry(self, entry):
+        """
+        Updates the whole entry in the database.
+        """
+        #TODO: FOREIGN KEYS?
         change_cols = " = ?,".join(self.insert_cols) + " = ?"
         sql = "UPDATE tracks SET {} WHERE track_id = ?".format(change_cols)
         values = []

@@ -64,6 +64,9 @@ class EntryDialog(QtWidgets.QDialog):
     def resizeEvent(self, event):
         print(self.width(), self.height())
 
+    def sizeHint(self):
+        return QtCore.QSize(700,400)
+
 
 class DataLine:
     def __init__(self, title, content):
@@ -79,14 +82,20 @@ class ImageLabel(QtWidgets.QLabel):
     def __init__(self, parent = None):
         super(ImageLabel, self).__init__(parent = parent)
         self.pixMapRect = QtCore.QRect(0,0,200, 200)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
 
         #self.setScaledContents(True)
 
 
     def paintEvent(self, event):
         if self.pixmap():
+            print(self.pixmap().scaled(self.pixMapRect.size()).size())
             self.setPixmap(self.pixmap().scaled(self.pixMapRect.size(), QtCore.Qt.KeepAspectRatio))
         super(ImageLabel,self).paintEvent(event)
+        print("Label ",self.width(), self.height())
+
+    def sizeHint(self):
+        return self.pixMapRect.size()
 
     def heightForWidth(w):
         return w

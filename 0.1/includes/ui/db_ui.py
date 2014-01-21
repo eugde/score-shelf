@@ -70,7 +70,7 @@ class DbDelegate(QtWidgets.QItemDelegate):
 
 
 class DbView(QtWidgets.QTableView):
-    def __init__(self, parent=None, db_name="test.db"):
+    def __init__(self, parent=None, db=db_interface.TrackDbHandler):
         super(DbView, self).__init__(parent)
 
         self.setSortingEnabled(True)
@@ -78,8 +78,8 @@ class DbView(QtWidgets.QTableView):
 
         self.delegate = DbDelegate()
         self.setItemDelegate(self.delegate)
-        db = db_interface.DbHandler(db_name)
-        self.setModel(DbModel(db))
+        self.db = db
+        self.setModel(DbModel(self.db))
         self.columns = self.model().columns
 
         self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
@@ -89,7 +89,7 @@ class DbView(QtWidgets.QTableView):
 
 
 class CollectionModel(QtCore.QAbstractItemModel):
-    def __init__(self, db, parent = None):
+    def __init__(self, db = db_interface.TrackDbHandler(constants.MAIN_DB_PATH), parent = None):
         super(CollectionModel, self).__init__(parent)
 
         self.db = db
@@ -112,13 +112,43 @@ class CollectionModel(QtCore.QAbstractItemModel):
 
     def get_collection_members(self, parent, collection):
         col_handler = collection[1]
-        groups = col_handler.update_groups()
-        for group in groups:
+        categories = col_handler.update_groups()
+        for group in categories:
             group_item = TreeItem(group)
-            for entry in groups[group]:
-                entry_item = TreeItem(entry)
-                group_item.add_child(entry_item)
             parent.add_child(group_item)
+
+            if categories[group]:
+                for entry in categories[group]:
+                    entry_item = TreeItem(entry)
+                    group_item.add_child(entry_item)
+
+    def columnCount(self, index):
+        if index.isValid():
+            return index.internalPointer().columnCount()
+
+    def data(self, index, role):
+        if not index.isValid():
+            return None
+
+        item = index.internalPointer()
+
+        return item.data()
+
+    def index(self, row, column, parent):
+        if not self.hasIndex(row, column, parent):
+            return QtCore.QModelIndex()
+
+        if not parent.isValid():
+            parentItem = self.root
+        else:
+            parentItem = parent.internalPointer()
+
+        childItem = parentItem.fetch_child(row)
+        if childItem:
+            return self.createIndex(row, column, childItem)
+        else:
+            return QtCore.QModelIndex()
+
 
 
 class TreeItem:
@@ -137,10 +167,13 @@ class TreeItem:
         else:
             return 0
 
+    def fetch_child(self, row):
+        return self.children[row]
+
     def add_child(self, child):
-        if self.children.append(child):
-            child.parent = self
-            return child
+        self.children.append(child)
+        child.parent = self
+        return child
 
     def del_child(self, child_name):
         try:
@@ -148,21 +181,34 @@ class TreeItem:
         except ValueError:
             return False
 
+    def children_count(self):
+        return len(self.children)
+
+    def sort_children(self):
+        self.children.sort(key = lambda x: x.name)
+
     def data(self):
         return self.name
 
-    def row(self):
+    def parent(self):
+        if self.parent:
+            return  self.parent
+        else:
+            return None
+
+    def row_pos(self):
         if self.parent():
             return self.parent.children.index(self)
 
         return 0
 
     def columnCount(self):
+        #This is hardcoded because this view is designed to only show one column.
         return 1
 
 
 class CollectionView(QtWidgets.QTreeView):
-    def __init__(self, db, parent = None):
+    def __init__(self, db = db_interface.TrackDbHandler(constants.MAIN_DB_PATH), parent = None):
         super(CollectionView, self).__init__(parent)
 
         self.db = db
@@ -214,7 +260,6 @@ class EntryTabPage(QtWidgets.QWidget):
                     self.layout().addWidget(widget, row, col)
                 except IndexError:
                     self.layout().addItem(QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Ignored),row,col)
-
 
 
 class EntryView(QtWidgets.QWidget):
@@ -294,19 +339,13 @@ if __name__ == "__main__":
     print(os.path.abspath(__file__))
     app = QtWidgets.QApplication(sys.argv)
     db = db_interface.TrackDbHandler("data/test2.db")
-    test_v = EntryTabView([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                           db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")]),
-                        ])
-    test_v.set_entries([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])])
-    test_v.resize(800,600)
+    test_v = EntryTabView([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])]*8)
+    #test_v.set_entries([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])])
+    #test_v = DbView
+    #test_v.resize(800,600)
     test_v.update()
     test_v.show()
+    test = CollectionModel()
+    print(test.data)
+    print(test.get_collection_members(test.root.children[0], test.data[0]))
     sys.exit(app.exec_())

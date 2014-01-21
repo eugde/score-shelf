@@ -11,7 +11,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.FilterLabel.setText("Test")
         self.entryTabs = db_ui.EntryTabView(parent = self.ui.entryFrame)
         self.ui.entryFrame.layout().addWidget(self.entryTabs, 10)
-        self.entryTabs.set_entries([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])])
+        self.entryTabs.set_entries([db_interface.Entry([1,"Test","Hallo","Tschüss","asdf","asdf","adsf","asdf",os.path.join("data", "img", "")])]*8)
 
 
 

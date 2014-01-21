@@ -97,9 +97,12 @@ class CollectionHandler:
             sql_fetch_tracks += helper_functions.create_placeholders(len(tids))
             results = []
             with self.db.db_connection:
-                self.db.cursor.execute(sql_fetch_tracks, tuple(tids))
-                for entry in self.db.cursor.fetchall():
-                    results.append(db_interface.Entry(entry))
+                if tids:
+                    self.db.cursor.execute(sql_fetch_tracks, tuple(tids))
+                    for entry in self.db.cursor.fetchall():
+                        results.append(db_interface.Entry(entry))
+                else:
+                    return None
             return results
         except sqlite3.OperationalError as e:
             print(e.args[0])
